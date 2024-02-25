@@ -1,0 +1,13 @@
+[package]
+name = "l3ma"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dotenv = "0.15"
+anyhow = "1"
+
+serenity = "0.12"
+poise = "0.6"
+
+tokio = { version = "1", features = ["macros", "rt-multi-thread"]}
