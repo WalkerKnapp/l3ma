@@ -1,0 +1,16 @@
+[Unit]
+Description=L3ma Bot
+After=network.target
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/root/l3ma/target/release/l3ma
+WorkingDirectory=/root/l3ma
+Restart=always
+RestartSec=5
+StandardOutput=syslog
+StandardInput=syslog
+SyslogIdentifier=%n
