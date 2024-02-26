@@ -1,14 +1,7 @@
+mod commands;
+pub mod context;
+
 use poise::serenity_prelude as serenity;
-
-struct Data {}
-type Context<'a> = poise::Context<'a, Data, anyhow::Error>;
-
-/// 🏓
-#[poise::command(slash_command)]
-async fn ping(ctx: Context<'_>) -> anyhow::Result<()> {
-    ctx.say("Pong!").await?;
-    Ok(())
-}
 
 #[tokio::main]
 async fn main() {
@@ -20,13 +13,13 @@ async fn main() {
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![ping()],
+            commands: commands::generate_commands(),
             ..Default::default()
         })
         .setup(|ctx, _ready, framework| {
             Box::pin(async move {
-                poise::builtins::register_globally(ctx, &framework.options().commands).await?;
-                Ok(Data {})
+                //poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+                Ok(context::Data {})
             })
         })
         .build();

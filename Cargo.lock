@@ -190,8 +190,10 @@ checksum = "5bc015644b92d5890fab7489e49d21f879d5c990186827d42ec511919404f38b"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
+ "js-sys",
  "num-traits",
  "serde",
+ "wasm-bindgen",
  "windows-targets 0.52.3",
 ]
 
@@ -719,7 +721,9 @@ name = "l3ma"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "dotenv",
+ "nonzero_ext",
  "poise",
  "serenity",
  "tokio",
@@ -815,6 +819,12 @@ dependencies = [
  "wasi",
  "windows-sys 0.48.0",
 ]
+
+[[package]]
+name = "nonzero_ext"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38bf9645c8b145698bb0b18a4637dcacbc421ea49bef2317e4fd8065a387cf21"
 
 [[package]]
 name = "num-conv"
