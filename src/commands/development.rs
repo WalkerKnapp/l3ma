@@ -1,4 +1,3 @@
-use poise::serenity_prelude as serenity;
 use crate::context::*;
 
 async fn development_check(ctx: Context<'_>) -> anyhow::Result<bool> {
