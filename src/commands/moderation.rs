@@ -16,6 +16,20 @@ async fn error_handler(error: poise::FrameworkError<'_, Data, anyhow::Error>) {
     }
 }
 
+async fn send_dm_notification(user: &User, reason: Option<&String>, ctx: &Context<'_>) -> anyhow::Result<()> {
+    let embed = CreateEmbed::new()
+        .color(Color::from_rgb(179, 38, 255))
+        .title("You have been banned by a moderator")
+        .field("Reason", reason.map(|s| s.as_str()).unwrap_or("*No reason specified, contact moderators for more information*"), false)
+        .footer(CreateEmbedFooter::new("Portal 2 Speedrun Server"))
+        .timestamp(Timestamp::now());
+
+    let channel = user.create_dm_channel(ctx.http()).await?;
+    channel.send_message(ctx.http(), CreateMessage::new().embed(embed)).await?;
+
+    Ok(())
+}
+
 /// Ban a user and DMs them a reason
 #[poise::command(
     slash_command,
@@ -28,10 +42,6 @@ pub async fn ban(
     #[description = "Reason to record/DM"] reason: Option<String>,
     #[description = "Delete messages from the last X days"] #[max = 7] cleanup: Option<u8>
 ) -> anyhow::Result<()> {
-
-    // Try to ban the user
-    ctx.http().ban_user(P2SR_SERVER, user.id, cleanup.unwrap_or(0), reason.as_deref()).await
-        .map_err(|e| anyhow::Error::new(e).context("Could not ban user"))?;
 
     // Try to notify mod actions
     let mut notif_author = CreateEmbedAuthor::new(&ctx.author().name);
@@ -46,19 +56,11 @@ pub async fn ban(
     ).await.map_err(|e| anyhow::Error::new(e).context("Could not send notification message"))?;
 
     // Try to DM the user the result
-    let dm_result: anyhow::Result<()> = {
-        let embed = CreateEmbed::new()
-            .color(Color::from_rgb(179, 38, 255))
-            .title("You have been banned by a moderator")
-            .field("Reason", reason.unwrap_or("*No reason specified, contact moderators for more information*".to_string()), false)
-            .footer(CreateEmbedFooter::new("Portal 2 Speedrun Server"))
-            .timestamp(Timestamp::now());
+    let dm_result = send_dm_notification(&user, reason.as_ref(), &ctx).await;
 
-        let channel = user.create_dm_channel(ctx.http()).await?;
-        channel.send_message(ctx.http(), CreateMessage::new().embed(embed)).await?;
-
-        Ok(())
-    };
+    // Try to ban the user
+    ctx.http().ban_user(P2SR_SERVER, user.id, cleanup.unwrap_or(0), reason.as_deref()).await
+        .map_err(|e| anyhow::Error::new(e).context("Could not ban user"))?;
 
     // Send followup
     if dm_result.is_ok() {
