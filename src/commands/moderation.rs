@@ -21,6 +21,7 @@ async fn send_dm_notification(user: &User, reason: Option<&String>, ctx: &Contex
         .color(Color::from_rgb(179, 38, 255))
         .title("You have been banned by a moderator")
         .field("Reason", reason.map(|s| s.as_str()).unwrap_or("*No reason specified, contact moderators for more information*"), false)
+        .field("Appeal", "https://s.portal2.sr/appeal", false)
         .footer(CreateEmbedFooter::new("Portal 2 Speedrun Server"))
         .timestamp(Timestamp::now());
 
