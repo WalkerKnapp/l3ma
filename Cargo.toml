@@ -9,6 +9,8 @@ anyhow = "1"
 chrono = "0.4"
 nonzero_ext = "0.3"
 
+luma1-data = { path = "../luma1-data" }
+
 serenity = "0.12"
 poise = "0.6"
 

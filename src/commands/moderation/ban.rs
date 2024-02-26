@@ -1,20 +1,6 @@
 use poise::serenity_prelude::*;
-use crate::context::{Context, Data};
+use crate::context::{Context, Data, P2SR_NOTIFICATIONS_CHANNEL, P2SR_SERVER};
 
-const P2SR_SERVER: GuildId =
-    GuildId::new(146404426746167296);
-const P2SR_NOTIFICATIONS_CHANNEL: ChannelId =
-    ChannelId::new(432229671711670272);
-
-async fn error_handler(error: poise::FrameworkError<'_, Data, anyhow::Error>) {
-    if let poise::FrameworkError::Command {error, ctx, .. } = error {
-        if let Err(e) = ctx.say(format!("```diff\n- {:#}\n```", error)).await {
-            eprintln!("Error in error handling: {}", e);
-        }
-    } else {
-        eprintln!("Couldn't handle ban error: {}", error);
-    }
-}
 
 async fn send_dm_notification(user: &User, reason: Option<&String>, ctx: &Context<'_>) -> anyhow::Result<()> {
     let embed = CreateEmbed::new()
@@ -33,9 +19,9 @@ async fn send_dm_notification(user: &User, reason: Option<&String>, ctx: &Contex
 
 /// Ban a user and DMs them a reason
 #[poise::command(
-    slash_command,
-    required_permissions = "BAN_MEMBERS",
-    on_error = "error_handler"
+slash_command,
+required_permissions = "BAN_MEMBERS",
+on_error = "crate::commands::error_handler"
 )]
 pub async fn ban(
     ctx: Context<'_>,
@@ -45,16 +31,10 @@ pub async fn ban(
 ) -> anyhow::Result<()> {
 
     // Try to notify mod actions
-    let mut notif_author = CreateEmbedAuthor::new(&ctx.author().name);
-    if let Some(url) = ctx.author().avatar_url() {
-        notif_author = notif_author.icon_url(url);
-    }
-    P2SR_NOTIFICATIONS_CHANNEL.send_message(
-        ctx.http(), CreateMessage::new().embed(CreateEmbed::new()
-            .author(notif_author)
-            .description(format!("Banned {} ({})", user.mention(), user.id))
-            .field("Reason", reason.clone().unwrap_or("*No reason specified*".to_string()), false))
-    ).await.map_err(|e| anyhow::Error::new(e).context("Could not send notification message"))?;
+    crate::commands::moderation::send_mod_action_log(&ctx, |embed| {
+        embed.description(format!("Banned {} ({})", user.mention(), user.id))
+            .field("Reason", reason.clone().unwrap_or("*No reason specified*".to_string()), false)
+    }).await?;
 
     // Try to DM the user the result
     let dm_result = send_dm_notification(&user, reason.as_ref(), &ctx).await;

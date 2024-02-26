@@ -2,6 +2,7 @@ mod commands;
 pub mod context;
 
 use poise::serenity_prelude as serenity;
+use crate::context::Data;
 
 #[tokio::main]
 async fn main() {
@@ -18,7 +19,7 @@ async fn main() {
         })
         .setup(|_ctx, _ready, _framework| {
             Box::pin(async move {
-                Ok(context::Data {})
+                Ok(Data::new().await.expect("Failed to create state data"))
             })
         })
         .build();

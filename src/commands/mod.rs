@@ -1,8 +1,18 @@
-mod moderation;
+pub mod moderation;
 mod development;
 
 use poise::serenity_prelude::*;
 use crate::context::{Context, Data};
+
+pub async fn error_handler(error: poise::FrameworkError<'_, Data, anyhow::Error>) {
+    if let poise::FrameworkError::Command {error, ctx, .. } = error {
+        if let Err(e) = ctx.say(format!("```diff\n- {:#}\n```", error)).await {
+            eprintln!("Error in error handling: {}", e);
+        }
+    } else {
+        eprintln!("Couldn't handle ban error: {}", error);
+    }
+}
 
 /// pong :3
 #[poise::command(slash_command)]
