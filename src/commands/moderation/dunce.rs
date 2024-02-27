@@ -9,6 +9,19 @@ use serenity::all::{RoleId};
 
 use crate::context::Context;
 
+#[macro_export]
+macro_rules! join_and_accumulate_errors {
+    ($x:expr, $( $y:expr ),*) => {
+        let errors = tokio::join!($($y),*);
+        $(
+            ${ignore(y)}
+            if let Err(e) = errors.${index()} {
+               $x.push(format!("- {:#}", e));
+            }
+        )*
+    }
+}
+
 pub const P2SR_DUNCE_ROLE: RoleId =
     RoleId::new(146404426746167296);
 
@@ -59,12 +72,13 @@ pub async fn dunce(
     let success_message = if DunceInstants::find_by_id(user.id.get() as i64)
         .one(&ctx.data().db).await?.is_some() {
 
-        let (r1, r2) = tokio::join!(
+        join_and_accumulate_errors!(error_messages,
             // Queue setting undunce time in DB
             luma1_data::entity::dunce_instants::ActiveModel {
                 user_id: Set(user.id.into()),
                 undunce_instant: Set(undunce_time)
             }.update(&ctx.data().db),
+
             // Queue mod actions notification
             super::send_mod_action_log(ctx.http(), ctx.author().clone(), move |embed| {
                 embed.description(format!("Updating dunce time for {} ({})", user.mention(), &user.id))
@@ -72,18 +86,12 @@ pub async fn dunce(
                 .field("Expires", format!("<t:{}:f>", undunce_time.timestamp()), true)
             })
         );
-        if let Err(e) = r1 {
-            error_messages.push(format!("- {:#}", e))
-        }
-        if let Err(e) = r2 {
-            error_messages.push(format!("- {:#}", e))
-        }
 
         // Send followup
         ctx.say(format!("Updated dunce time for user {} ({}), they will be undunced <t:{}:R>", user_mention, user_id, undunce_time.timestamp()))
     } else {
+        // We can only manage the user's roles if they're being dunced while they're still in the server
         if let Some(member) = ctx.author_member().await {
-
             let roles_to_remove: Vec<RoleId> = member.roles.clone().into_iter()
                 .filter(|role_id| *role_id != P2SR_DUNCE_ROLE)
                 .collect();
@@ -96,26 +104,24 @@ pub async fn dunce(
                     }
                 }).collect();
 
-            let (r1, r2) = tokio::join!(
+            join_and_accumulate_errors!(error_messages,
+                // Queue recording user's roles in DB
                 DunceStoredRoles::insert_many(role_active_models)
                 .on_empty_do_nothing()
                 .exec(&ctx.data().db),
+
+                // Queue removing user's roles
                 member.remove_roles(ctx.http(), &roles_to_remove)
             );
-            if let Err(e) = r1 {
-                error_messages.push(format!("- {:#}", e))
-            }
-            if let Err(e) = r2 {
-                error_messages.push(format!("- {:#}", e))
-            }
         }
 
-        let (r1, r2) = tokio::join!(
+        join_and_accumulate_errors!(error_messages,
             // Queue inserting undunce time in DB
             luma1_data::entity::dunce_instants::ActiveModel {
                 user_id: Set(user.id.into()),
                 undunce_instant: Set(undunce_time)
             }.insert(&ctx.data().db),
+
             // Queue mod actions notification
             super::send_mod_action_log(ctx.http(), ctx.author().clone(), move |embed| {
                 embed.description(format!("Dunced {} ({})", user.mention(), &user.id))
@@ -123,12 +129,6 @@ pub async fn dunce(
                 .field("Expires", format!("<t:{}:f>", undunce_time.timestamp()), true)
             })
         );
-        if let Err(e) = r1 {
-            error_messages.push(format!("- {:#}", e))
-        }
-        if let Err(e) = r2 {
-            error_messages.push(format!("- {:#}", e))
-        }
 
         // Send followup
         ctx.say(format!("Dunced user {} ({}), they will be undunced <t:{}:R>", user_mention, user_id, undunce_time.timestamp()))

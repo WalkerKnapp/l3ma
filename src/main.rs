@@ -1,3 +1,5 @@
+#![feature(macro_metavar_expr)]
+
 mod commands;
 pub mod context;
 
