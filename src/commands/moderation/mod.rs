@@ -2,25 +2,29 @@ mod ban;
 mod dunce;
 
 pub use ban::ban as ban;
-use crate::context::{Context, P2SR_NOTIFICATIONS_CHANNEL};
+pub use dunce::dunce as dunce;
+use crate::context::{P2SR_NOTIFICATIONS_CHANNEL};
 
 use poise::serenity_prelude::{CreateEmbed, CreateEmbedAuthor, CreateMessage};
+use serenity::all::{CacheHttp, Timestamp, User};
 
 pub async fn send_mod_action_log(
-    ctx: &Context<'_>,
+    http: impl CacheHttp,
+    author: User,
     embed_builder: impl Fn(CreateEmbed) -> CreateEmbed
 ) -> anyhow::Result<()> {
 
-    let mut notif_author = CreateEmbedAuthor::new(&ctx.author().name);
-    if let Some(url) = ctx.author().avatar_url() {
+    let mut notif_author = CreateEmbedAuthor::new("");
+    if let Some(url) = author.avatar_url() {
         notif_author = notif_author.icon_url(url);
     }
+    notif_author = notif_author.name(author.name);
 
-    let embed = CreateEmbed::new().author(notif_author);
+    let embed = CreateEmbed::new().author(notif_author).timestamp(Timestamp::now());
     let embed = embed_builder(embed);
 
     P2SR_NOTIFICATIONS_CHANNEL.send_message(
-        ctx.http(), CreateMessage::new().embed(embed)
+        http, CreateMessage::new().embed(embed)
     ).await.map_err(|e| anyhow::Error::new(e).context("Could not send notification message"))?;
 
     Ok(())

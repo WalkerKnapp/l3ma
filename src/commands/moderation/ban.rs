@@ -1,5 +1,5 @@
 use poise::serenity_prelude::*;
-use crate::context::{Context, Data, P2SR_NOTIFICATIONS_CHANNEL, P2SR_SERVER};
+use crate::context::{Context, P2SR_SERVER};
 
 
 async fn send_dm_notification(user: &User, reason: Option<&String>, ctx: &Context<'_>) -> anyhow::Result<()> {
@@ -31,7 +31,7 @@ pub async fn ban(
 ) -> anyhow::Result<()> {
 
     // Try to notify mod actions
-    crate::commands::moderation::send_mod_action_log(&ctx, |embed| {
+    super::send_mod_action_log(ctx.http(), ctx.author().clone(), |embed| {
         embed.description(format!("Banned {} ({})", user.mention(), user.id))
             .field("Reason", reason.clone().unwrap_or("*No reason specified*".to_string()), false)
     }).await?;

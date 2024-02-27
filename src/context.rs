@@ -6,7 +6,7 @@ pub const P2SR_NOTIFICATIONS_CHANNEL: ChannelId =
     ChannelId::new(432229671711670272);
 
 pub struct Data {
-    db: luma1_data::sea_orm::DatabaseConnection
+    pub db: luma1_data::sea_orm::DatabaseConnection
 }
 pub type Context<'a> = poise::Context<'a, Data, anyhow::Error>;
 

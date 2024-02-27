@@ -1,4 +1,4 @@
-pub mod moderation;
+mod moderation;
 mod development;
 
 use poise::serenity_prelude::*;
@@ -27,6 +27,7 @@ pub fn generate_commands() -> Vec<poise::Command<Data, anyhow::Error>> {
     let commands = vec![
         ping(),
         moderation::ban(),
+        moderation::dunce(),
         development::register_commands()
     ];
 

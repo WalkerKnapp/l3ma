@@ -359,6 +359,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "chronoutil"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa531c9c2b0e6168a6e4c5023cd38e8d5ab009d3a10459cd3e7baecd68fc3715"
+dependencies = [
+ "chrono",
+]
+
+[[package]]
 name = "command_attr"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1087,6 +1096,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "chronoutil",
  "dotenv",
  "luma1-data",
  "nonzero_ext",
