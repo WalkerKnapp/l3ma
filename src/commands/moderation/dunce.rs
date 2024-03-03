@@ -4,17 +4,24 @@ use poise::serenity_prelude::User;
 use poise::serenity_prelude::Mentionable;
 
 use luma1_data::entity::prelude::*;
-use luma1_data::sea_orm::{EntityTrait, Set, ActiveModelTrait};
+use luma1_data::sea_orm::{EntityTrait, Set, sea_query};
 use serenity::all::{RoleId};
 
 use crate::context::Context;
+
+#[macro_export]
+macro_rules! ignore {
+    ($x:expr) => {
+        ();
+    }
+}
 
 #[macro_export]
 macro_rules! join_and_accumulate_errors {
     ($x:expr, $( $y:expr ),*) => {
         let errors = tokio::join!($($y),*);
         $(
-            ${ignore(y)}
+            ignore!($y);
             if let Err(e) = errors.${index()} {
                $x.push(format!("- {:#}", e));
             }
@@ -66,79 +73,76 @@ pub async fn dunce(
     // Calculate when to undunce
     let undunce_time = time_units.apply_delta(Utc::now(), time)?;
 
+    // Check for an existing dunce
+    let currently_dunced = DunceInstants::find_by_id(user.id.get() as i64)
+        .one(&ctx.data().db).await?.is_some();
+
     let mut error_messages: Vec<String> = vec![];
 
-    // Check for an existing dunce
-    let success_message = if DunceInstants::find_by_id(user.id.get() as i64)
-        .one(&ctx.data().db).await?.is_some() {
+    // Manage the user's roles if they are:
+    // - Not already dunced
+    // - In the server
+    if !currently_dunced && let Some(member) = ctx.author_member().await {
+        let roles_to_remove: Vec<RoleId> = member.roles.clone().into_iter()
+            .filter(|role_id| *role_id != P2SR_DUNCE_ROLE)
+            .collect();
+
+        let role_active_models: Vec<luma1_data::entity::dunce_stored_roles::ActiveModel> =
+            roles_to_remove.iter().map(|role_id| {
+                luma1_data::entity::dunce_stored_roles::ActiveModel {
+                    user_id: Set(ctx.author().id.into()),
+                    role_id: Set((*role_id).into())
+                }
+            }).collect();
 
         join_and_accumulate_errors!(error_messages,
-            // Queue setting undunce time in DB
-            luma1_data::entity::dunce_instants::ActiveModel {
-                user_id: Set(user.id.into()),
-                undunce_instant: Set(undunce_time)
-            }.update(&ctx.data().db),
-
-            // Queue mod actions notification
-            super::send_mod_action_log(ctx.http(), ctx.author().clone(), move |embed| {
-                embed.description(format!("Updating dunce time for {} ({})", user.mention(), &user.id))
-                .field("Remaining", format!("Undunce <t:{}:R>", undunce_time.timestamp()), true)
-                .field("Expires", format!("<t:{}:f>", undunce_time.timestamp()), true)
-            })
-        );
-
-        // Send followup
-        ctx.say(format!("Updated dunce time for user {} ({}), they will be undunced <t:{}:R>", user_mention, user_id, undunce_time.timestamp()))
-    } else {
-        // We can only manage the user's roles if they're being dunced while they're still in the server
-        if let Some(member) = ctx.author_member().await {
-            let roles_to_remove: Vec<RoleId> = member.roles.clone().into_iter()
-                .filter(|role_id| *role_id != P2SR_DUNCE_ROLE)
-                .collect();
-
-            let role_active_models: Vec<luma1_data::entity::dunce_stored_roles::ActiveModel> =
-                roles_to_remove.iter().map(|role_id| {
-                    luma1_data::entity::dunce_stored_roles::ActiveModel {
-                        user_id: Set(ctx.author().id.into()),
-                        role_id: Set((*role_id).into())
-                    }
-                }).collect();
-
-            join_and_accumulate_errors!(error_messages,
                 // Queue recording user's roles in DB
                 DunceStoredRoles::insert_many(role_active_models)
                 .on_empty_do_nothing()
                 .exec(&ctx.data().db),
 
                 // Queue removing user's roles
-                member.remove_roles(ctx.http(), &roles_to_remove)
+                member.remove_roles(ctx.http(), &roles_to_remove),
+
+                // Queue adding the dunce role
+                member.add_role(ctx.http(), P2SR_DUNCE_ROLE)
             );
-        }
+    }
 
-        join_and_accumulate_errors!(error_messages,
-            // Queue inserting undunce time in DB
-            luma1_data::entity::dunce_instants::ActiveModel {
-                user_id: Set(user.id.into()),
-                undunce_instant: Set(undunce_time)
-            }.insert(&ctx.data().db),
+    // Update/insert undunce time in DB and send a report in the action log
+    join_and_accumulate_errors!(error_messages,
+        // Queue inserting undunce time in DB (updating if it already exists)
+        DunceInstants::insert(luma1_data::entity::dunce_instants::ActiveModel {
+            user_id: Set(user.id.into()),
+            undunce_instant: Set(undunce_time)
+        }).on_conflict(
+            sea_query::OnConflict::column(luma1_data::entity::dunce_instants::Column::UserId)
+                .update_column(luma1_data::entity::dunce_instants::Column::UndunceInstant)
+                .to_owned()
+        ).exec(&ctx.data().db),
 
-            // Queue mod actions notification
-            super::send_mod_action_log(ctx.http(), ctx.author().clone(), move |embed| {
-                embed.description(format!("Dunced {} ({})", user.mention(), &user.id))
-                .field("Remaining", format!("Undunce <t:{}:R>", undunce_time.timestamp()), true)
-                .field("Expires", format!("<t:{}:f>", undunce_time.timestamp()), true)
-            })
-        );
+        // Queue mod actions notification
+        super::send_mod_action_log(ctx.http(), ctx.author().clone(), move |embed| {
+            embed.description(
+                format!("{} {} ({})",
+                    if currently_dunced { "Updated dunce time for" } else { "Dunced" },
+                    user.mention(),
+                    &user.id
+                )
+            )
+            .field("Remaining", format!("Undunce <t:{}:R>", undunce_time.timestamp()), true)
+            .field("Expires", format!("<t:{}:f>", undunce_time.timestamp()), true)
+        })
+    );
 
-        // Send followup
-        ctx.say(format!("Dunced user {} ({}), they will be undunced <t:{}:R>", user_mention, user_id, undunce_time.timestamp()))
-    };
-
-    // Wait for all of our tasks to execute
     if !error_messages.is_empty() {
         ctx.say(format!("Failed to dunce user:```diff\n{}\n```", error_messages.join("\n"))).await?;
     } else {
-        success_message.await?;
+        if currently_dunced {
+            ctx.say(format!("Updated dunce time for user {} ({}), they will be undunced <t:{}:R>", user_mention, user_id, undunce_time.timestamp())).await?;
+        } else {
+            ctx.say(format!("Dunced user {} ({}), they will be undunced <t:{}:R>", user_mention, user_id, undunce_time.timestamp())).await?;
+        }
     }
 
     Ok(())

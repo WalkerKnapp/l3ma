@@ -1,4 +1,5 @@
 #![feature(macro_metavar_expr)]
+#![feature(let_chains)]
 
 mod commands;
 pub mod context;
