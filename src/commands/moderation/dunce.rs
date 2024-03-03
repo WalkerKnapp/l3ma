@@ -7,7 +7,7 @@ use luma1_data::entity::prelude::*;
 use luma1_data::sea_orm::{EntityTrait, Set, sea_query};
 use serenity::all::{RoleId};
 
-use crate::context::Context;
+use crate::context::{Context, P2SR_DUNCE_ROLE};
 
 #[macro_export]
 macro_rules! ignore {
@@ -28,9 +28,6 @@ macro_rules! join_and_accumulate_errors {
         )*
     }
 }
-
-pub const P2SR_DUNCE_ROLE: RoleId =
-    RoleId::new(146404426746167296);
 
 #[derive(poise::ChoiceParameter)]
 pub enum TimeUnits {

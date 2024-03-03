@@ -3,19 +3,20 @@
 
 mod commands;
 pub mod context;
+mod events;
 
 use poise::serenity_prelude as serenity;
 use crate::context::Data;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
     dotenv::dotenv()
         .expect("Failed to load .env");
 
     let token = std::env::var("DISCORD_TOKEN")
         .expect("No DISCORD_TOKEN environment variable set");
 
-    let framework = poise::Framework::builder()
+    let command_framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
             commands: commands::generate_commands(),
             ..Default::default()
@@ -27,8 +28,20 @@ async fn main() {
         })
         .build();
 
-    let client = serenity::ClientBuilder::new(token, serenity::GatewayIntents::non_privileged())
-        .framework(framework)
-        .await;
-    client.unwrap().start().await.unwrap();
+    let event_handler = events::Handler {
+        data: Data::new().await.expect("Failed to create state data")
+    };
+
+    let mut client = serenity::ClientBuilder::new(
+        token,
+        serenity::GatewayIntents::non_privileged()
+            .union(serenity::GatewayIntents::GUILD_MEMBERS)
+    )
+        .framework(command_framework)
+        .event_handler(event_handler)
+        .await?;
+
+    client.start().await?;
+
+    Ok(())
 }
