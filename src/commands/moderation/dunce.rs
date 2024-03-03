@@ -4,10 +4,10 @@ use poise::serenity_prelude::User;
 use poise::serenity_prelude::Mentionable;
 
 use luma1_data::entity::prelude::*;
-use luma1_data::sea_orm::{EntityTrait, Set, sea_query};
+use luma1_data::sea_orm::{IntoActiveModel, EntityTrait, ColumnTrait, QueryFilter, Set, sea_query};
 use serenity::all::{RoleId};
 
-use crate::context::{Context, P2SR_DUNCE_ROLE};
+use crate::context::{Context, P2SR_DUNCE_ROLE, P2SR_SERVER};
 
 #[macro_export]
 macro_rules! ignore {
@@ -79,7 +79,7 @@ pub async fn dunce(
     // Manage the user's roles if they are:
     // - Not already dunced
     // - In the server
-    if !currently_dunced && let Some(member) = ctx.author_member().await {
+    if !currently_dunced && let Some(member) = P2SR_SERVER.member(ctx.serenity_context(), user.id).await.ok() {
         let roles_to_remove: Vec<RoleId> = member.roles.clone().into_iter()
             .filter(|role_id| *role_id != P2SR_DUNCE_ROLE)
             .collect();
@@ -140,6 +140,74 @@ pub async fn dunce(
         } else {
             ctx.say(format!("Dunced user {} ({}), they will be undunced <t:{}:R>", user_mention, user_id, undunce_time.timestamp())).await?;
         }
+    }
+
+    Ok(())
+}
+
+/// Undunce a user
+#[poise::command(
+slash_command,
+required_permissions = "MODERATE_MEMBERS",
+on_error = "crate::commands::error_handler"
+)]
+pub async fn undunce(
+    ctx: Context<'_>,
+    #[description = "User to undunce"] user: User
+) -> anyhow::Result<()> {
+    // Check whether the user is dunced
+    let dunce_instant = match DunceInstants::find_by_id(user.id.get() as i64)
+        .one(&ctx.data().db).await? {
+        Some(i) => i,
+        None => {
+            ctx.say("```diff\n - User {} ({}) is not dunced.\n```").await?;
+            return Ok(());
+        }
+    };
+
+    let user_mention = user.mention();
+    let user_id = user.id;
+
+    let mut error_messages: Vec<String> = vec![];
+
+    // We can only manage roles if the user is in the server
+    if let Some(member) = P2SR_SERVER.member(ctx.serenity_context(), user.id).await.ok() {
+        // Collect roles the user had before being dunced
+        let stored_roles : Vec<RoleId> = DunceStoredRoles::find()
+            .filter(luma1_data::entity::dunce_stored_roles::Column::UserId.eq(user.id.get() as i64))
+            .all(&ctx.data().db).await?
+            .iter().map(|r| RoleId::new(r.role_id as u64))
+            .collect();
+
+        join_and_accumulate_errors!(error_messages,
+            // Add roles the user previously had
+            member.add_roles(ctx.http(), &stored_roles),
+
+            // Remove dunce role
+            member.remove_role(ctx.http(), P2SR_DUNCE_ROLE)
+        );
+    }
+
+    join_and_accumulate_errors!(error_messages,
+        // Queue notifying mod-actions
+        super::send_mod_action_log(ctx.http(), ctx.author().clone(), move |embed| {
+            embed.description(format!("Undunced user {} ({})", user_mention, user_id))
+        }),
+
+        // Clear dunce instant
+        DunceInstants::delete(dunce_instant.into_active_model())
+            .exec(&ctx.data().db),
+
+        // Clear stored roles
+        DunceStoredRoles::delete_many()
+            .filter(luma1_data::entity::dunce_stored_roles::Column::UserId.eq(user.id.get() as i64))
+            .exec(&ctx.data().db)
+    );
+
+    if !error_messages.is_empty() {
+        ctx.say(format!("Failed to undunce user:```diff\n{}\n```", error_messages.join("\n"))).await?;
+    } else {
+        ctx.say(format!("Undunced user {} ({})", user.mention(), &user.id)).await?;
     }
 
     Ok(())
