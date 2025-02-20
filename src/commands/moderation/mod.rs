@@ -5,6 +5,7 @@ mod cleanup;
 pub use ban::ban as ban;
 pub use dunce::dunce as dunce;
 pub use dunce::undunce as undunce;
+pub use cleanup::cleanup as cleanup;
 use crate::context::{P2SR_NOTIFICATIONS_CHANNEL};
 
 use poise::serenity_prelude::{CreateEmbed, CreateEmbedAuthor, CreateMessage};

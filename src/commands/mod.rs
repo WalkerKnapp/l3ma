@@ -30,6 +30,7 @@ pub fn generate_commands() -> Vec<poise::Command<Data, anyhow::Error>> {
         moderation::ban(),
         moderation::dunce(),
         moderation::undunce(),
+        moderation::cleanup(),
         development::register_commands()
     ];
 
