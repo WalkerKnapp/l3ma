@@ -1,8 +1,10 @@
 mod ban;
 mod dunce;
+mod cleanup;
 
 pub use ban::ban as ban;
 pub use dunce::dunce as dunce;
+pub use dunce::undunce as undunce;
 use crate::context::{P2SR_NOTIFICATIONS_CHANNEL};
 
 use poise::serenity_prelude::{CreateEmbed, CreateEmbedAuthor, CreateMessage};
