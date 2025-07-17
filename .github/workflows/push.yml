@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Build and push Docker image
-        uses: docker/build-push-action
+        uses: docker/build-push-action@v6
         with:
           push: true
           outputs: type=image,name=target,annotation-index.org.opencontainers.image.description=L3ma
