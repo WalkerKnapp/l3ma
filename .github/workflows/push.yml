@@ -1,0 +1,14 @@
+name: ci
+
+on:
+  push:
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build and push Docker image
+        uses: docker/build-push-action
+        with:
+          push: true
+          outputs: type=image,name=target,annotation-index.org.opencontainers.image.description=L3ma
