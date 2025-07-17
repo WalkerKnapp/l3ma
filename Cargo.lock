@@ -1321,6 +1321,7 @@ checksum = "04cbf5b083de1c7e0222a7a51dbfdba1cbe1c6ab0b15e29fff3f6c077fd9cd9f"
 [[package]]
 name = "luma1-data"
 version = "0.1.0"
+source = "git+https://github.com/WalkerKnapp/luma1-data.git#cbb06611e18742f3f529b2bc6701b6ba1707d1e2"
 dependencies = [
  "sea-orm",
 ]

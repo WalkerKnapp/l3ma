@@ -19,6 +19,7 @@ impl Data {
         let database_url = std::env::var("DATABASE_URL")
             .expect("No DATABASE_URL environment variable set");
 
+        println!("Connecting to database at {}", database_url);
         Ok(Data {
             db: luma1_data::sea_orm::Database::connect(database_url).await?
         })

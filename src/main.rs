@@ -1,5 +1,4 @@
 #![feature(macro_metavar_expr)]
-#![feature(let_chains)]
 
 mod commands;
 pub mod context;
@@ -11,8 +10,23 @@ use crate::context::Data;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    dotenv::dotenv()
-        .expect("Failed to load .env");
+    if std::fs::exists(".env").unwrap_or(false) {
+        dotenv::dotenv()
+            .expect("Failed to load .env");
+    }
+    for (key, val) in std::env::vars() {
+        if let Some(stripped_key) = key.strip_suffix("_FILE") {
+            match std::fs::read_to_string(&val) {
+                Ok(res) => {
+                    // SAFETY: This code is only run before the program has forked into multiple threads
+                    unsafe { std::env::set_var(stripped_key, res); }
+                }
+                Err(e) => {
+                    eprintln!("Failed to read environment variable value at {key}={val}: {e}");
+                }
+            }
+        }
+    }
 
     let token = std::env::var("DISCORD_TOKEN")
         .expect("No DISCORD_TOKEN environment variable set");

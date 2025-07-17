@@ -1,7 +1,10 @@
 [package]
 name = "l3ma"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+
+[profile.release]
+strip = true
 
 [dependencies]
 dotenv = "0.15"
@@ -10,7 +13,7 @@ chrono = "0.4"
 chronoutil = "0.2"
 nonzero_ext = "0.3"
 
-luma1-data = { path = "../luma1-data" }
+luma1-data = { git = "https://github.com/WalkerKnapp/luma1-data.git" }
 
 serenity = "0.12"
 poise = "0.6"
