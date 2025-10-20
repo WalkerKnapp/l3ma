@@ -12,6 +12,7 @@ pub const P2SR_DUNCE_ROLE: RoleId =
 pub struct ForumAutoCloseConfig {
     pub forum_channel_id: ChannelId,
     pub close_tag_id: ForumTagId,
+    pub lock_on_close: bool,
 }
 
 pub struct Data {
@@ -47,23 +48,38 @@ fn load_forum_auto_close_config() -> anyhow::Result<Option<ForumAutoCloseConfig>
         Err(std::env::VarError::NotPresent) => None,
         Err(e) => return Err(e.into()),
     };
+    let lock_flag = match std::env::var("FORUM_AUTO_CLOSE_LOCK") {
+        Ok(val) => Some(val),
+        Err(std::env::VarError::NotPresent) => None,
+        Err(e) => return Err(e.into()),
+    };
 
-    match (channel_id, tag_id) {
-        (Some(channel_id), Some(tag_id)) => {
+    match (channel_id, tag_id, lock_flag) {
+        (None, None, None) => Ok(None),
+        (None, None, Some(_)) => anyhow::bail!(
+            "FORUM_AUTO_CLOSE_LOCK requires FORUM_AUTO_CLOSE_CHANNEL_ID and FORUM_AUTO_CLOSE_TAG_ID"
+        ),
+        (Some(channel_id), Some(tag_id), lock_flag) => {
             let channel_id = channel_id
                 .parse::<u64>()
                 .context("FORUM_AUTO_CLOSE_CHANNEL_ID must be an integer Discord channel id")?;
             let tag_id = tag_id
                 .parse::<u64>()
                 .context("FORUM_AUTO_CLOSE_TAG_ID must be an integer Discord forum tag id")?;
+            let lock_on_close = match lock_flag {
+                Some(value) => value
+                    .parse::<bool>()
+                    .context("FORUM_AUTO_CLOSE_LOCK must be either true or false")?,
+                None => false,
+            };
             Ok(Some(ForumAutoCloseConfig {
                 forum_channel_id: ChannelId::new(channel_id),
                 close_tag_id: ForumTagId::new(tag_id),
+                lock_on_close,
             }))
         }
-        (None, None) => Ok(None),
         _ => anyhow::bail!(
-            "FORUM_AUTO_CLOSE_CHANNEL_ID and FORUM_AUTO_CLOSE_TAG_ID must both be provided"
+            "FORUM_AUTO_CLOSE_CHANNEL_ID and FORUM_AUTO_CLOSE_TAG_ID must both be provided when enabling forum auto-close"
         ),
     }
 }

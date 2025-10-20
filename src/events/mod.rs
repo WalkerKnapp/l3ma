@@ -67,10 +67,12 @@ impl EventHandler for Handler {
             return;
         }
 
-        if let Err(err) = new
-            .id
-            .edit_thread(&ctx.http, EditThread::new().archived(true))
-            .await
+        let mut edit = EditThread::new().archived(true);
+        if config.lock_on_close {
+            edit = edit.locked(true);
+        }
+
+        if let Err(err) = new.id.edit_thread(&ctx.http, edit).await
         {
             eprintln!(
                 "Failed to auto-close thread {} after close tag applied: {:?}",
@@ -117,7 +119,10 @@ impl EventHandler for Handler {
             return;
         }
 
-        if channel.owner_id != Some(user_id) {
+        let is_owner = channel.owner_id == Some(user_id)
+            || reaction.message_author_id == Some(user_id);
+
+        if !is_owner {
             return;
         }
 
@@ -130,10 +135,12 @@ impl EventHandler for Handler {
             return;
         }
 
-        if let Err(err) = channel
-            .id
-            .edit_thread(&ctx.http, EditThread::new().archived(true))
-            .await
+        let mut edit = EditThread::new().archived(true);
+        if config.lock_on_close {
+            edit = edit.locked(true);
+        }
+
+        if let Err(err) = channel.id.edit_thread(&ctx.http, edit).await
         {
             eprintln!(
                 "Failed to auto-close thread {} after owner reaction: {:?}",
