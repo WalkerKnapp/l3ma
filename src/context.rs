@@ -70,7 +70,7 @@ fn load_forum_auto_close_config() -> anyhow::Result<Option<ForumAutoCloseConfig>
                 Some(value) => value
                     .parse::<bool>()
                     .context("FORUM_AUTO_CLOSE_LOCK must be either true or false")?,
-                None => false,
+                None => true,
             };
             Ok(Some(ForumAutoCloseConfig {
                 forum_channel_id: ChannelId::new(channel_id),
