@@ -1,13 +1,15 @@
+use crate::context::Data;
 use serenity::all::{Channel, ChannelType, GuildChannel, Member, Reaction, ReactionType};
 use serenity::builder::EditThread;
-use serenity::prelude::{EventHandler};
 use serenity::prelude::Context as SerenityContext;
-use crate::context::Data;
+use serenity::prelude::EventHandler;
 
 mod moderation;
 
+const MAX_FORUM_TAGS: usize = 5;
+
 pub struct Handler {
-    pub(crate) data: Data
+    pub(crate) data: Data,
 }
 
 #[serenity::async_trait]
@@ -39,14 +41,20 @@ impl EventHandler for Handler {
             return;
         }
 
-        if !new.applied_tags.iter().any(|tag| *tag == config.close_tag_id) {
+        if !new
+            .applied_tags
+            .iter()
+            .any(|tag| *tag == config.close_tag_id)
+        {
             return;
         }
 
-        if old
-            .as_ref()
-            .is_some_and(|previous| previous.applied_tags.iter().any(|tag| *tag == config.close_tag_id))
-        {
+        if old.as_ref().is_some_and(|previous| {
+            previous
+                .applied_tags
+                .iter()
+                .any(|tag| *tag == config.close_tag_id)
+        }) {
             return;
         }
 
@@ -72,8 +80,7 @@ impl EventHandler for Handler {
             edit = edit.locked(true);
         }
 
-        if let Err(err) = new.id.edit_thread(&ctx.http, edit).await
-        {
+        if let Err(err) = new.id.edit_thread(&ctx.http, edit).await {
             eprintln!(
                 "Failed to auto-close thread {} after close tag applied: {:?}",
                 new.id, err
@@ -100,9 +107,7 @@ impl EventHandler for Handler {
             Err(err) => {
                 eprintln!(
                     "Failed to fetch channel {} for reaction {}: {:?}",
-                    reaction.channel_id,
-                    reaction.message_id,
-                    err
+                    reaction.channel_id, reaction.message_id, err
                 );
                 return;
             }
@@ -119,12 +124,26 @@ impl EventHandler for Handler {
             return;
         }
 
-        let is_owner = channel.owner_id == Some(user_id)
-            || reaction.message_author_id == Some(user_id);
+        let is_owner =
+            channel.owner_id == Some(user_id) || reaction.message_author_id == Some(user_id);
 
         if !is_owner {
             return;
         }
+
+        let mut applied_tags = channel.applied_tags.clone();
+        let added_close_tag = if applied_tags.iter().any(|tag| *tag == config.close_tag_id) {
+            false
+        } else if applied_tags.len() >= MAX_FORUM_TAGS {
+            eprintln!(
+                "Skipping add of close tag for thread {}: already at tag limit ({}).",
+                channel.id, MAX_FORUM_TAGS
+            );
+            false
+        } else {
+            applied_tags.push(config.close_tag_id);
+            true
+        };
 
         if channel
             .thread_metadata
@@ -139,9 +158,11 @@ impl EventHandler for Handler {
         if config.lock_on_close {
             edit = edit.locked(true);
         }
+        if added_close_tag {
+            edit = edit.applied_tags(applied_tags);
+        }
 
-        if let Err(err) = channel.id.edit_thread(&ctx.http, edit).await
-        {
+        if let Err(err) = channel.id.edit_thread(&ctx.http, edit).await {
             eprintln!(
                 "Failed to auto-close thread {} after owner reaction: {:?}",
                 channel.id, err

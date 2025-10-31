@@ -1,12 +1,9 @@
 use anyhow::Context as _;
 use serenity::all::{ChannelId, ForumTagId, GuildId, RoleId};
 
-pub const P2SR_SERVER: GuildId =
-    GuildId::new(146404426746167296);
-pub const P2SR_NOTIFICATIONS_CHANNEL: ChannelId =
-    ChannelId::new(432229671711670272);
-pub const P2SR_DUNCE_ROLE: RoleId =
-    RoleId::new(146404426746167296);
+pub const P2SR_SERVER: GuildId = GuildId::new(146404426746167296);
+pub const P2SR_NOTIFICATIONS_CHANNEL: ChannelId = ChannelId::new(432229671711670272);
+pub const P2SR_DUNCE_ROLE: RoleId = RoleId::new(146404426746167296);
 
 #[derive(Clone, Copy)]
 pub struct ForumAutoCloseConfig {
@@ -25,8 +22,8 @@ impl Data {
     /// Create a new context for the bot's execution
     /// !!!! This will be called multiple times for different shards!
     pub async fn new() -> anyhow::Result<Self> {
-        let database_url = std::env::var("DATABASE_URL")
-            .expect("No DATABASE_URL environment variable set");
+        let database_url =
+            std::env::var("DATABASE_URL").expect("No DATABASE_URL environment variable set");
 
         println!("Connecting to database at {}", database_url);
         let forum_auto_close = load_forum_auto_close_config()?;
@@ -70,7 +67,7 @@ fn load_forum_auto_close_config() -> anyhow::Result<Option<ForumAutoCloseConfig>
                 Some(value) => value
                     .parse::<bool>()
                     .context("FORUM_AUTO_CLOSE_LOCK must be either true or false")?,
-                None => true,
+                None => false,
             };
             Ok(Some(ForumAutoCloseConfig {
                 forum_channel_id: ChannelId::new(channel_id),
